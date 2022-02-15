@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Repositories\Interfaces\UserRepositoryInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -12,14 +13,24 @@ use Mockery\Exception;
 
 class AuthController extends Controller
 {
-
-    public function __construct()
+    private $repository;
+    public function __construct(UserRepositoryInterface $repository)
     {
+        $this->repository = $repository;
     }
 
-    public function test()
+    public function register(Request $request)
     {
-        return 1;
+        try {
+            $validator = Validator::make($request->all(), [
+                'mobile' => ['required', 'min:11', 'max:11', 'regex:/(09)[0-9]{9}/']
+            ]);
+            if ($validator->fails()) {
+                return response($validator->errors(), 400);
+            }
+        } catch (Exception $exception) {
+            return responseServerError();
+        }
     }
 
     public function index()
@@ -34,7 +45,7 @@ class AuthController extends Controller
                 'mobile' => ['required', 'min:11', 'max:11', 'regex:/(09)[0-9]{9}/'],
                 'type' => ['nullable', 'boolean']
             ]);
-
+            $otpInfo['otp'] = rand(100000, 999999);
             if ($validator->fails()) {
                 return response($validator->errors(), 400);
             }
@@ -49,11 +60,15 @@ class AuthController extends Controller
                 }
 
                 $user = $this->repository->storeUser($request);
+                $user->update([
+                    'otp' => $otpInfo['otp'],
+                ]);
+                $otpInfo['mobile'] = $request->mobile;
                 if (!config('app.debug')) {
                     $user->sendVerificationCode();
                 }
 
-                return response('رمز یکبار مصرف ارسال شد', 200);
+                return response($otpInfo, 200);
             } else {
                 $user = User::whereMobile($request->mobile)->first();;
 
@@ -64,8 +79,10 @@ class AuthController extends Controller
                     if (!config('app.debug')) {
                         $user->sendVerificationCode();
                     }
-
-                    return response('رمز یکبار مصرف ارسال شد', 200);
+                    $user->update([
+                        'otp' => $otpInfo['otp'],
+                    ]);
+                    return response($otpInfo, 200);
                 }
             }
         } catch (Exception $exception) {
@@ -94,7 +111,7 @@ class AuthController extends Controller
                 $user->sendVerificationCode();
             }
 
-            return response('رمز یکبار مصرف ارسال شد', 200);
+            return response(123456, ['رمز یکبار مصرف ارسال شد', 200]);
         }
     }
 
