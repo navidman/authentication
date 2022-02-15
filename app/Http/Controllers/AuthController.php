@@ -50,6 +50,7 @@ class AuthController extends Controller
                 return response($validator->errors(), 400);
             }
 
+            //type true means registering new user and type false means login request
             if ($request->type) {
                 $validator = Validator::make($request->all(), [
                     'mobile' => ['required', 'min:11', 'max:11', 'regex:/(09)[0-9]{9}/', 'unique:users'],
